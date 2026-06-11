@@ -9,6 +9,8 @@ export default function AuthPage({ onAuth }) {
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [locLoading, setLocLoading] = useState(false)
+  
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setError('') }
 
   const submit = async e => {
@@ -109,7 +111,33 @@ export default function AuthPage({ onAuth }) {
                   </div>
                 </div>
 
-                {/* Removed public admin registration. All public signups default to farmer role. */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ marginBottom: 6, display: 'block', fontSize: 13, color: 'var(--text2)', fontWeight: 500 }}>Account type</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {['farmer', 'admin'].map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => set('role', type)}
+                        style={{
+                          flex: 1,
+                          padding: '12px 14px',
+                          borderRadius: 10,
+                          border: form.role === type ? '1px solid var(--accent)' : '1px solid var(--border)',
+                          background: form.role === type ? 'rgba(74,222,128,0.1)' : 'transparent',
+                          color: form.role === type ? 'var(--text)' : 'var(--text2)',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                      >
+                        {type === 'farmer' ? 'Farmer' : 'Admin'}
+                      </button>
+                    ))}
+                  </div>
+                  <p style={{ marginTop: 8, fontSize: 12, color: 'var(--text3)' }}>
+                    Choose admin if you want admin access on the platform.
+                  </p>
+                </div>
 
                 {form.role === 'farmer' && (
                   <div style={{ padding: '16px', background: 'var(--bg2)', borderRadius: 12, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -134,13 +162,24 @@ export default function AuthPage({ onAuth }) {
                     </div>
                     <button type="button" onClick={() => {
                       if ("geolocation" in navigator) {
-                        navigator.geolocation.getCurrentPosition(pos => {
-                          set('lat', pos.coords.latitude);
-                          set('lng', pos.coords.longitude);
-                        });
+                        setLocLoading(true)
+                        navigator.geolocation.getCurrentPosition(
+                          pos => {
+                            set('lat', pos.coords.latitude);
+                            set('lng', pos.coords.longitude);
+                            setLocLoading(false);
+                          },
+                          err => {
+                            setLocLoading(false);
+                            alert("Could not fetch location: " + err.message + ". Please check your device location permissions.");
+                          },
+                          { enableHighAccuracy: true, timeout: 10000 }
+                        );
+                      } else {
+                        alert("Geolocation is not supported by your browser.");
                       }
-                    }} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', padding: '6px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', alignSelf: 'flex-start' }}>
-                      📍 Use Current Location
+                    }} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', padding: '6px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {locLoading ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }}></div> : '📍'} Use Current Location
                     </button>
                   </div>
                 )}

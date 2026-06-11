@@ -76,7 +76,7 @@ function buildScanPopup(report) {
       </div>
       ${imageUrl ? `
       <div style="border:1px solid rgba(255,255,255,0.12);border-radius:10px;overflow:hidden;background:#0f172a;margin-bottom:8px;position:relative;">
-        <img src="${imageUrl}" alt="AI Diagnostic" style="width:100%;display:block;height:auto;" />
+        <img src="${imageUrl}" onerror="this.style.display='none'" alt="AI Diagnostic" style="width:100%;display:block;height:auto;" />
         ${(report.diseaseType !== 'healthy' && (!report.heatmap || report.heatmap === report.imageUrl)) ? `
           <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 55% 45%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 25%, rgba(0,0,0,0) 60%); mix-blend-mode: hard-light; pointer-events: none;"></div>
         ` : ''}
@@ -374,7 +374,7 @@ function AdminFarmPanel({ farm, onClose }) {
               <div className="card" style={{ padding: 12, borderColor: latestScan.disease_result?.includes('blight') ? 'rgba(248,113,113,0.3)' : 'var(--border)' }}>
                 <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}><Zap size={12} /> Latest scan heatmap</p>
                 <div style={{ borderRadius: 14, overflow: 'hidden', background: '#0f172a', border: '1px solid rgba(255,255,255,0.08)', position: 'relative' }}>
-                  <img src={latestScan.heatmap || latestScan.image_url} alt="Latest scan" style={{ width: '100%', display: 'block', objectFit: 'cover', maxHeight: 210 }} />
+                  <img src={latestScan.heatmap || latestScan.image_url} onError={(e) => e.target.style.display = 'none'} alt="Latest scan" style={{ width: '100%', display: 'block', objectFit: 'cover', maxHeight: 210 }} />
                   {(!latestScan.heatmap || latestScan.heatmap === latestScan.image_url) && latestScan.disease_result !== 'healthy' && (
                     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(circle at 55% 45%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 25%, rgba(0,0,0,0) 60%)', mixBlendMode: 'hard-light', pointerEvents: 'none' }}></div>
                   )}
@@ -500,8 +500,8 @@ function buildAdminPopup(farm) {
   const scanLine = farm.last_scan_at
     ? `<div style="font-size:10px;color:#9aa3b8;margin-top:4px">Last scan: ${SCAN_LABELS[farm.last_scan_result] || farm.last_scan_result} (${formatConfidence(farm.last_scan_confidence)}%)</div>` : ''
   const scanImageBlock = scanImage ? `
-      <div style="border:1px solid rgba(255,255,255,0.12);border-radius:10px;overflow:hidden;background:#0f172a;margin:10px 0;">
-        <img src="${scanImage}" alt="Latest scan heatmap" style="width:100%;display:block;height:auto;" />
+      <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;background:#000;margin-top:10px;">
+        <img src="${scanImage}" onerror="this.style.display='none'" alt="Latest scan heatmap" style="width:100%;display:block;height:auto;" />
       </div>` : ''
   return `
     <div style="font-family:system-ui,sans-serif;min-width:220px;color:#e8eaf0">
