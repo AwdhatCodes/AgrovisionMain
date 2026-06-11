@@ -1,8 +1,8 @@
 {
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/(.*)", "destination": "https://agrovisionmain.onrender.com/api/$1" },
+    { "source": "/uploads/(.*)", "destination": "https://agrovisionmain.onrender.com/uploads/$1" },
+    { "source": "/chat/(.*)", "destination": "https://agrovisionmain.onrender.com/chat/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

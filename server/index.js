@@ -72,7 +72,7 @@ function parseBuyerCoords(body = {}) {
 }
 
 // Simulate AI disease diagnosis
-function simulateDiagnosis(filename = '', fileSize = 0) {
+function simulateDiagnosis(filename = '', fileSize = 0, image_url = null) {
   const hash = [...(filename + fileSize)].reduce((a, c) => a + c.charCodeAt(0), 0)
   const rand = (hash % 100) / 100
 
@@ -99,7 +99,13 @@ function simulateDiagnosis(filename = '', fileSize = 0) {
     : affected_area_pct < 20 ? 'mild'
     : affected_area_pct < 50 ? 'moderate' : 'severe'
 
-  return { disease_result, confidence, affected_area_pct, severity }
+  return { 
+    disease_result, 
+    confidence, 
+    affected_area_pct, 
+    severity,
+    heatmap: disease_result !== 'healthy' ? image_url : null
+  }
 }
 
 const AI_ENGINE_URL = process.env.AI_ENGINE_URL || 'http://localhost:5002'
@@ -144,9 +150,13 @@ async function runAiDiagnosis(file) {
 // ── AUTH ──
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { name, email, password, role = 'farmer' } = req.body
+    const { name, email, password, role = 'farmer', farmName, region, lat, lng } = req.body
     if (!name || !email || !password) return res.status(400).json({ error: 'All fields required' })
     if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' })
+    if (role === 'farmer' && (!farmName || !region || lat === undefined || lng === undefined)) {
+      return res.status(400).json({ error: 'Farm details are required for farmer accounts' })
+    }
+
     const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email)
     if (existing) return res.status(409).json({ error: 'An account with this email already exists' })
     const password_hash = await bcrypt.hash(password, 10)
@@ -155,7 +165,16 @@ app.post('/api/auth/register', async (req, res) => {
     const id = randomUUID()
     const validRole = ['buyer','farmer','admin'].includes(role) ? role : 'farmer'
     db.prepare('INSERT INTO users (id, name, email, password_hash, role, avatar_color) VALUES (?, ?, ?, ?, ?, ?)').run(id, name.trim(), email.toLowerCase().trim(), password_hash, validRole, avatar_color)
+    
+    let farm_id = null
+    if (validRole === 'farmer') {
+      farm_id = randomUUID()
+      db.prepare(`INSERT INTO farms (id, name, region, lat, lng, owner_email, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(farm_id, farmName, region, parseFloat(lat)||0, parseFloat(lng)||0, email.toLowerCase().trim(), id)
+    }
+
     const user = db.prepare('SELECT id, name, email, role, avatar_color, buyer_lat, buyer_lng, buyer_region, buyer_location, created_at FROM users WHERE id = ?').get(id)
+    if (farm_id) user.farm_id = farm_id
+
     const token = signToken({ id: user.id, email: user.email, role: user.role })
     res.status(201).json({ token, user })
   } catch (err) {
@@ -173,6 +192,10 @@ app.post('/api/auth/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password_hash)
     if (!match) return res.status(401).json({ error: 'Incorrect password' })
     const { password_hash, ...safeUser } = user
+    if (safeUser.role === 'farmer') {
+      const farm = db.prepare('SELECT id FROM farms WHERE user_id = ?').get(safeUser.id)
+      if (farm) safeUser.farm_id = farm.id
+    }
     const token = signToken({ id: user.id, email: user.email, role: user.role })
     res.json({ token, user: safeUser })
   } catch (err) {
@@ -188,6 +211,10 @@ app.get('/api/auth/me', (req, res) => {
   if (!payload) return res.status(401).json({ error: 'Invalid token' })
   const user = db.prepare('SELECT id, name, email, role, avatar_color, buyer_lat, buyer_lng, buyer_region, buyer_location, created_at FROM users WHERE id = ?').get(payload.id)
   if (!user) return res.status(404).json({ error: 'User not found' })
+  if (user.role === 'farmer') {
+    const farm = db.prepare('SELECT id FROM farms WHERE user_id = ?').get(user.id)
+    if (farm) user.farm_id = farm.id
+  }
   res.json(user)
 })
 
@@ -209,10 +236,10 @@ app.post('/api/diagnosis/scan', upload.single('image'), async (req, res) => {
 
   let diagnosis
   try {
-    diagnosis = req.file ? await runAiDiagnosis(req.file) : simulateDiagnosis('', 0)
+    diagnosis = req.file ? await runAiDiagnosis(req.file) : simulateDiagnosis('', 0, image_url)
   } catch (err) {
     console.warn('AI engine unavailable, using simulated diagnosis:', err.message)
-    diagnosis = simulateDiagnosis(req.file?.originalname || '', req.file?.size || 0)
+    diagnosis = simulateDiagnosis(req.file?.originalname || '', req.file?.size || 0, image_url)
   }
 
   const { disease_result, confidence, affected_area_pct, severity, heatmap = null } = diagnosis
@@ -305,6 +332,15 @@ app.get('/api/farms/map', (req, res) => {
   const adminView = req.query.view === 'admin'
   const regions = db.prepare('SELECT * FROM region_disease_risk ORDER BY region').all()
 
+  const scans = db.prepare(`
+    SELECT s.id, s.farm_id as farmerId, f.lat as latitude, f.lng as longitude, f.name as farmName,
+           s.disease_result as diseaseType, s.confidence as confidenceScore, s.created_at as date,
+           s.image_url as imageUrl, s.heatmap
+    FROM disease_scans s
+    JOIN farms f ON s.farm_id = f.id
+    WHERE f.lat IS NOT NULL AND f.lng IS NOT NULL
+  `).all()
+
   if (!adminView) {
     const farms = db.prepare(`
       SELECT f.*, r.risk_level, r.detection_count, r.blight_type as region_blight,
@@ -314,7 +350,7 @@ app.get('/api/farms/map', (req, res) => {
       LEFT JOIN products p ON p.farm_id = f.id AND p.status = 'approved' AND p.quarantined = 0
       GROUP BY f.id ORDER BY f.name
     `).all()
-    return res.json(farms)
+    return res.json({ farms, scans })
   }
 
   let farms
@@ -360,7 +396,7 @@ app.get('/api/farms/map', (req, res) => {
     total_scans: farms.reduce((s, f) => s + (f.scan_count || 0), 0),
   }
 
-  res.json({ farms, regions, summary })
+  res.json({ farms, regions, summary, scans })
 })
 
 app.post('/api/farms', (req, res) => {
@@ -375,10 +411,16 @@ app.put('/api/farms/:id', (req, res) => {
   const { name, region, lat, lng, owner_email, owner_phone, disease_safe } = req.body
   const ex = db.prepare('SELECT * FROM farms WHERE id=?').get(req.params.id)
   
-  if (!ex) return res.status(404).json({ error: 'Not found' })
-
-  const parsedLat = lat !== undefined ? parseFloat(lat) : ex.lat
-  const parsedLng = lng !== undefined ? parseFloat(lng) : ex.lng
+  const parsedLat = lat !== undefined ? parseFloat(lat) : (ex ? ex.lat : 0)
+  const parsedLng = lng !== undefined ? parseFloat(lng) : (ex ? ex.lng : 0)
+  
+  if (!ex) {
+    const computedRegion = inferBuyerRegion(parsedLat, parsedLng)
+    db.prepare(`INSERT INTO farms (id,name,region,lat,lng,owner_email,owner_phone,disease_safe) VALUES (?,?,?,?,?,?,?,?)`).run(
+      req.params.id, name || 'New Farm', region || computedRegion, parsedLat, parsedLng, owner_email||null, owner_phone||null, disease_safe?1:0
+    )
+    return res.json(db.prepare('SELECT * FROM farms WHERE id=?').get(req.params.id))
+  }
 
   db.prepare(`UPDATE farms SET name=?, region=?, lat=?, lng=?, owner_email=?, owner_phone=?, disease_safe=? WHERE id=?`).run(
     name || ex.name,

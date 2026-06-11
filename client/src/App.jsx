@@ -18,34 +18,22 @@ const NAV = [
 ]
 
 function UserMenu({ user, onLogout }) {
-  const [open, setOpen] = useState(false)
   const initials = user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'
 
   return (
-    <div style={{ position: 'relative' }}>
-      <button onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 99, padding: '5px 12px 5px 5px', cursor: 'pointer' }}>
-        <div style={{ width: 28, height: 28, borderRadius: '50%', background: user.avatar_color || '#4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#0a1a0f', flexShrink: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 30, height: 30, borderRadius: '50%', background: user.avatar_color || '#4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#0a1a0f', flexShrink: 0 }}>
           {initials}
         </div>
-        <span style={{ fontSize: 13, fontWeight: 500, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
-        <ChevronDown size={13} color="var(--text3)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        <div className="hide-on-mobile" style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
+          <span style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'capitalize', lineHeight: 1 }}>{user.role}</span>
+        </div>
+      </div>
+      <button onClick={onLogout} className="btn btn-ghost" style={{ padding: '6px', color: 'var(--danger)', borderRadius: '50%', border: '1px solid rgba(248,113,113,0.2)', background: 'rgba(248,113,113,0.05)' }} title="Sign out">
+        <LogOut size={16} />
       </button>
-
-      {open && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setOpen(false)} />
-          <div style={{ position: 'absolute', top: '110%', right: 0, minWidth: 200, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow)', zIndex: 50, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-              <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>{user.name}</p>
-              <p style={{ fontSize: 12, color: 'var(--text3)' }}>{user.email}</p>
-              <span style={{ marginTop: 6, display: 'inline-flex', fontSize: 10, padding: '2px 8px', borderRadius: 99, background: 'rgba(74,222,128,0.1)', color: 'var(--accent)', border: '1px solid rgba(74,222,128,0.2)', textTransform: 'capitalize' }}>{user.role}</span>
-            </div>
-            <button onClick={() => { setOpen(false); onLogout() }} style={{ width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--danger)', fontSize: 13, textAlign: 'left' }}>
-              <LogOut size={14} /> Sign out
-            </button>
-          </div>
-        </>
-      )}
     </div>
   )
 }
@@ -95,6 +83,50 @@ export default function App() {
     const t = setInterval(load, 15000)
     return () => clearInterval(t)
   }, [user])
+
+  // Automatically request GPS coordinates when a farmer logs in and doesn't have a location set
+  useEffect(() => {
+    if (!user) return;
+    const normalizedRole = user?.role?.toString().toLowerCase();
+    
+    // Only prompt if they aren't admin and haven't set their location
+    if (normalizedRole !== 'admin' && !user.location?.lat && !user.buyer_lat) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          try {
+            const { latitude, longitude } = pos.coords;
+            const targetId = user.farm_id || user.id;
+            
+            // Save to backend
+            await fetch(`/api/farms/${targetId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                lat: latitude, 
+                lng: longitude,
+                name: user.name ? `${user.name}'s Farm` : 'My Farm'
+              })
+            });
+            
+            // Update local user state
+            const updatedUser = {
+              ...user,
+              location: { ...user.location, lat: latitude, lng: longitude }
+            };
+            setUser(updatedUser);
+            localStorage.setItem('fm_user', JSON.stringify(updatedUser));
+            
+            // Tell map to refresh markers
+            window.dispatchEvent(new CustomEvent('farms:reload'));
+          } catch (err) {
+            console.error('Auto GPS update failed', err);
+          }
+        }, (err) => {
+          console.warn('Auto GPS denied or unavailable', err);
+        }, { enableHighAccuracy: true, timeout: 20000 });
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) return
@@ -147,32 +179,33 @@ export default function App() {
   })
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className="app-layout">
       <header style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 20px', display: 'flex', alignItems: 'center', gap: 16, height: 60 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginRight: 4, flexShrink: 0 }}>
+        <div className="header-container">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
             <div style={{ width: 32, height: 32, background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Sprout size={17} color="var(--accent)" />
             </div>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>AgroVision</span>
+            <span className="hide-on-mobile-small" style={{ fontWeight: 700, fontSize: 16 }}>AgroVision</span>
           </div>
 
-          <nav style={{ display: 'flex', gap: 2, flex: 1, overflowX: 'auto' }}>
+          <nav className="main-nav">
             {visibleNav.map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => setPage(id)} className="btn btn-ghost" style={{
+              <button key={id} onClick={() => setPage(id)} className={`btn btn-ghost nav-btn ${page === id ? 'active' : ''}`} style={{
                 color: page === id ? 'var(--accent)' : 'var(--text2)',
                 background: page === id ? 'rgba(74,222,128,0.08)' : 'transparent',
                 borderRadius: 8, padding: '7px 12px', fontSize: 13,
-                fontWeight: page === id ? 600 : 400, whiteSpace: 'nowrap', flexShrink: 0
+                fontWeight: page === id ? 600 : 400, whiteSpace: 'nowrap', flexShrink: 0, position: 'relative'
               }}>
-                <Icon size={14} />{label}
-                {id === 'scan' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', opacity: 0.8 }} />}
-                {id === 'agrobot' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#60a5fa', opacity: 0.8 }} />}
+                <Icon size={18} className="nav-icon" />
+                <span className="nav-label">{label}</span>
+                {id === 'scan' && <span className="nav-indicator" style={{ background: 'var(--accent)' }} />}
+                {id === 'agrobot' && <span className="nav-indicator" style={{ background: '#60a5fa' }} />}
               </button>
             ))}
           </nav>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
             <div style={{ position: 'relative' }}>
               <button className="btn btn-ghost" onClick={() => { setShowAlerts(s => !s); setSeenCount(alerts.length) }} style={{ padding: '7px 10px', position: 'relative', color: unread > 0 ? 'var(--warning)' : 'var(--text2)' }} title={unread > 0 ? `${unread} unread alerts` : 'No unread alerts'}>
                 <Bell size={17} />

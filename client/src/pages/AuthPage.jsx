@@ -5,7 +5,7 @@ const AVATAR_COLORS = ['#4ade80', '#60a5fa', '#f59e0b', '#f472b6', '#a78bfa', '#
 
 export default function AuthPage({ onAuth }) {
   const [mode, setMode] = useState('login')
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'farmer' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'farmer', farmName: '', region: '', lat: '', lng: '' })
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -18,7 +18,7 @@ export default function AuthPage({ onAuth }) {
       const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register'
       const body = mode === 'login'
         ? { email: form.email, password: form.password }
-        : { name: form.name, email: form.email, password: form.password, role: form.role }
+        : { name: form.name, email: form.email, password: form.password, role: form.role, farmName: form.farmName, region: form.region, lat: form.lat, lng: form.lng }
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -26,6 +26,47 @@ export default function AuthPage({ onAuth }) {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Something went wrong'); return }
+      localStorage.setItem('fm_token', data.token)
+      localStorage.setItem('fm_user', JSON.stringify(data.user))
+      onAuth(data.user)
+    } catch {
+      setError('Network error. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDemo = async (type) => {
+    setLoading(true); setError('')
+    try {
+      const email = type === 'admin' ? 'admin@demo.com' : 'farmer@demo.com'
+      const password = 'demo'
+      const name = type === 'admin' ? 'Admin User' : 'Farmer User'
+      
+      // Try login first
+      let res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+      
+      // If not found, register it
+      if (!res.ok) {
+        const reqBody = { name, email, password, role: type }
+        if (type === 'farmer') {
+          reqBody.farmName = 'Demo Farmer Estate'
+          reqBody.region = 'Nakuru County'
+          reqBody.lat = -0.3031
+          reqBody.lng = 36.0800
+        }
+        res = await fetch('/api/auth/register', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reqBody)
+        })
+      }
+      
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'Demo login failed'); return }
+      
       localStorage.setItem('fm_token', data.token)
       localStorage.setItem('fm_user', JSON.stringify(data.user))
       onAuth(data.user)
@@ -68,33 +109,41 @@ export default function AuthPage({ onAuth }) {
                   </div>
                 </div>
 
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label style={{ marginBottom: 6, display: 'block', fontSize: 13, color: 'var(--text2)', fontWeight: 500 }}>Account type</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {['farmer', 'admin'].map(type => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => set('role', type)}
-                        style={{
-                          flex: 1,
-                          padding: '12px 14px',
-                          borderRadius: 10,
-                          border: form.role === type ? '1px solid var(--accent)' : '1px solid var(--border)',
-                          background: form.role === type ? 'rgba(74,222,128,0.1)' : 'transparent',
-                          color: form.role === type ? 'var(--text)' : 'var(--text2)',
-                          cursor: 'pointer',
-                          fontWeight: 600
-                        }}
-                      >
-                        {type === 'farmer' ? 'Farmer' : 'Admin'}
-                      </button>
-                    ))}
+                {/* Removed public admin registration. All public signups default to farmer role. */}
+
+                {form.role === 'farmer' && (
+                  <div style={{ padding: '16px', background: 'var(--bg2)', borderRadius: 12, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)', margin: 0 }}>Farm Details</p>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ marginBottom: 6, display: 'block', fontSize: 12, color: 'var(--text2)', fontWeight: 500 }}>Farm Name</label>
+                      <input value={form.farmName} onChange={e => set('farmName', e.target.value)} placeholder="e.g. Green Acres" required style={{ width: '100%' }} />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ marginBottom: 6, display: 'block', fontSize: 12, color: 'var(--text2)', fontWeight: 500 }}>Region / County</label>
+                      <input value={form.region} onChange={e => set('region', e.target.value)} placeholder="e.g. Nakuru County" required style={{ width: '100%' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                        <label style={{ marginBottom: 6, display: 'block', fontSize: 12, color: 'var(--text2)', fontWeight: 500 }}>Latitude</label>
+                        <input type="number" step="any" value={form.lat} onChange={e => set('lat', e.target.value)} placeholder="-0.3031" required style={{ width: '100%' }} />
+                      </div>
+                      <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                        <label style={{ marginBottom: 6, display: 'block', fontSize: 12, color: 'var(--text2)', fontWeight: 500 }}>Longitude</label>
+                        <input type="number" step="any" value={form.lng} onChange={e => set('lng', e.target.value)} placeholder="36.0800" required style={{ width: '100%' }} />
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => {
+                      if ("geolocation" in navigator) {
+                        navigator.geolocation.getCurrentPosition(pos => {
+                          set('lat', pos.coords.latitude);
+                          set('lng', pos.coords.longitude);
+                        });
+                      }
+                    }} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', padding: '6px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', alignSelf: 'flex-start' }}>
+                      📍 Use Current Location
+                    </button>
                   </div>
-                  <p style={{ marginTop: 8, fontSize: 12, color: 'var(--text3)' }}>
-                    Choose admin if you want admin access on the platform.
-                  </p>
-                </div>
+                )}
               </>
             )}
 
@@ -150,10 +199,10 @@ export default function AuthPage({ onAuth }) {
 
         {/* Demo accounts hint */}
         <div style={{ marginTop: 20, padding: '14px 18px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center' }}>
-          <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Demo — create any account to get started</p>
+          <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Fast login — tap to continue instantly</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
-            <button onClick={() => { set('email', 'farmer@demo.com'); set('password', 'demo123'); set('name', 'Demo Farmer'); setMode('login') }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--text2)', fontSize: 12, cursor: 'pointer' }}>🌿 Farmer demo</button>
-            <button onClick={() => { set('email', 'admin@demo.com'); set('password', 'demo123'); set('name', 'Demo Admin'); setMode('login') }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', color: 'var(--text2)', fontSize: 12, cursor: 'pointer' }}>⚙️ Admin demo</button>
+            <button type="button" onClick={() => handleDemo('farmer')} disabled={loading} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 16px', color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>🌿 Farmer</button>
+            <button type="button" onClick={() => handleDemo('admin')} disabled={loading} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 16px', color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>⚙️ Admin</button>
           </div>
         </div>
       </div>

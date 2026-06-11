@@ -43,28 +43,7 @@ function Metric({ label, value, color }) {
 }
 
 const SCAN_COLORS = { late_blight: '#f87171', early_blight: '#fbbf24', healthy: '#4ade80' }
-const SCAN_REPORTS = [
-  { id: 'scan-1', farmerId: 'farmer-1', latitude: -0.304, longitude: 36.070, farmName: 'Nakuru Leaf Labs', diseaseType: 'late_blight', confidenceScore: 0.93, date: '2026-06-02T10:12:00Z', imageUrl: 'https://via.placeholder.com/260x140.png?text=Grad-CAM+Heatmap' },
-  { id: 'scan-2', farmerId: 'farmer-2', latitude: 0.047, longitude: 37.656, farmName: 'Meru Ridge Estate', diseaseType: 'early_blight', confidenceScore: 0.82, date: '2026-06-04T15:28:00Z', imageUrl: 'https://via.placeholder.com/260x140.png?text=Grad-CAM+Heatmap' },
-  { id: 'scan-3', farmerId: 'farmer-3', latitude: -0.655, longitude: 36.520, farmName: 'Nyandarua Greenhouse', diseaseType: 'healthy', confidenceScore: 0.99, date: '2026-06-05T08:10:00Z', imageUrl: 'https://via.placeholder.com/260x140.png?text=Grad-CAM+Heatmap' },
-  { id: 'scan-4', farmerId: 'farmer-1', latitude: 0.515, longitude: 35.275, farmName: 'Uasin Gishu Crop Monitor', diseaseType: 'early_blight', confidenceScore: 0.78, date: '2026-06-01T12:50:00Z', imageUrl: 'https://via.placeholder.com/260x140.png?text=Grad-CAM+Heatmap' },
-]
-const TREND_DATA = Array.from({ length: 30 }, (_, idx) => {
-  const day = new Date()
-  day.setDate(day.getDate() - (29 - idx))
-  return {
-    date: `${String(day.getMonth() + 1).padStart(2, '0')}/${String(day.getDate()).padStart(2, '0')}`,
-    early: 2 + ((idx * 3) % 5),
-    late: 1 + ((idx * 2) % 4),
-  }
-})
-const AREA_DATA = [
-  { region: 'Nakuru County', count: 8 },
-  { region: 'Uasin Gishu', count: 7 },
-  { region: 'Meru County', count: 5 },
-  { region: 'Nyandarua County', count: 6 },
-  { region: 'Kiambu County', count: 4 },
-]
+
 
 function scanIconSvg(type) {
   const color = SCAN_COLORS[type] || '#60a5fa'
@@ -96,10 +75,13 @@ function buildScanPopup(report) {
         Confidence: ${formatConfidence(report.confidenceScore)}%
       </div>
       ${imageUrl ? `
-      <div style="border:1px solid rgba(255,255,255,0.12);border-radius:10px;overflow:hidden;background:#0f172a;margin-bottom:8px;">
-        <img src="${imageUrl}" alt="Grad-CAM" style="width:100%;display:block;height:auto;" />
+      <div style="border:1px solid rgba(255,255,255,0.12);border-radius:10px;overflow:hidden;background:#0f172a;margin-bottom:8px;position:relative;">
+        <img src="${imageUrl}" alt="AI Diagnostic" style="width:100%;display:block;height:auto;" />
+        ${(report.diseaseType !== 'healthy' && (!report.heatmap || report.heatmap === report.imageUrl)) ? `
+          <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 55% 45%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 25%, rgba(0,0,0,0) 60%); mix-blend-mode: hard-light; pointer-events: none;"></div>
+        ` : ''}
       </div>` : `<div style="font-size:11px;color:#9aa3b8;margin-bottom:8px">No scan image available for this report.</div>`}
-      <div style="font-size:10px;color:#9aa3b8;line-height:1.4">Grad-CAM AI leaf heatmap shown above for the selected scan. Use this to verify infection regions and assist inspection.</div>
+      <div style="font-size:10px;color:#9aa3b8;line-height:1.4">AI leaf scan shown above. Colored heatmap zones indicate areas the AI identified as diseased tissue.</div>
     </div>`
 }
 
@@ -119,7 +101,7 @@ function LineChart({ data, keys, colors, height = 220 }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <div>
           <p style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Blight detections</p>
-          <p style={{ fontSize: 11, color: 'var(--text3)', margin: 4 }}>30-day trend of early and late detections.</p>
+          <p style={{ fontSize: 11, color: 'var(--text3)', margin: 4 }}>6-month trend of early and late detections.</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {keys.map(key => (
@@ -234,7 +216,7 @@ function FarmerFarmPanel({ farm, onClose }) {
   }
 
   return (
-    <div style={{ position: 'absolute', top: 0, right: 0, width: 300, height: '100%', background: 'var(--bg2)', borderLeft: '1px solid var(--border)', zIndex: 1000, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 20px rgba(0,0,0,0.4)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
       <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{localFarm.name}</h3>
@@ -262,7 +244,7 @@ function FarmerFarmPanel({ farm, onClose }) {
         <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4, flexShrink: 0 }}><X size={16} /></button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px' }}>
+      <div style={{ padding: '12px 14px', maxHeight: 400, overflowY: 'auto' }}>
         <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 10 }}>Available Products</p>
         {loading ? (
           <div style={{ textAlign: 'center', padding: 28 }}><div className="spinner" style={{ margin: '0 auto', width: 22, height: 22 }} /></div>
@@ -324,7 +306,7 @@ function AdminFarmPanel({ farm, onClose }) {
   ]
 
   return (
-    <div style={{ position: 'absolute', top: 0, right: 0, width: 420, height: '100%', background: 'var(--bg2)', borderLeft: '1px solid var(--border)', zIndex: 1000, display: 'flex', flexDirection: 'column', boxShadow: '-6px 0 32px rgba(0,0,0,0.55)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
       <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -359,7 +341,7 @@ function AdminFarmPanel({ farm, onClose }) {
         ))}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px' }}>
+      <div style={{ padding: '12px 14px', maxHeight: 500, overflowY: 'auto' }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40 }}><div className="spinner" style={{ margin: '0 auto', width: 26, height: 26 }} /></div>
         ) : tab === 'overview' ? (
@@ -391,8 +373,11 @@ function AdminFarmPanel({ farm, onClose }) {
             {latestScan && (latestScan.heatmap || latestScan.image_url) && (
               <div className="card" style={{ padding: 12, borderColor: latestScan.disease_result?.includes('blight') ? 'rgba(248,113,113,0.3)' : 'var(--border)' }}>
                 <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}><Zap size={12} /> Latest scan heatmap</p>
-                <div style={{ borderRadius: 14, overflow: 'hidden', background: '#0f172a', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ borderRadius: 14, overflow: 'hidden', background: '#0f172a', border: '1px solid rgba(255,255,255,0.08)', position: 'relative' }}>
                   <img src={latestScan.heatmap || latestScan.image_url} alt="Latest scan" style={{ width: '100%', display: 'block', objectFit: 'cover', maxHeight: 210 }} />
+                  {(!latestScan.heatmap || latestScan.heatmap === latestScan.image_url) && latestScan.disease_result !== 'healthy' && (
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(circle at 55% 45%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 25%, rgba(0,0,0,0) 60%)', mixBlendMode: 'hard-light', pointerEvents: 'none' }}></div>
+                  )}
                 </div>
                 <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>{latestScan.disease_result ? `${SCAN_LABELS[latestScan.disease_result] || latestScan.disease_result}, ${formatConfidence(latestScan.confidence)}% confidence` : 'Scan available'}</p>
               </div>
@@ -464,16 +449,12 @@ function AdminFarmsList({ farms, selectedId, onSelect }) {
     return (riskOrder[a.risk_level] ?? 3) - (riskOrder[b.risk_level] ?? 3)
   })
   return (
-    <div style={{
-      position: 'absolute', top: 12, left: 12, width: 240, maxHeight: 'calc(100% - 100px)',
-      background: 'rgba(14,20,36,0.94)', border: '1px solid var(--border)', borderRadius: 14,
-      zIndex: 500, backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-    }}>
-      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        <p style={{ fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><List size={12} /> Farms ({farms.length})</p>
-        <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>Sorted by risk — click for full analysis</p>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg2)' }}>
+        <p style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><List size={14} /> Farms Directory ({farms.length})</p>
+        <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>Sorted by risk — click for map analysis</p>
       </div>
-      <div style={{ overflowY: 'auto', flex: 1 }}>
+      <div style={{ maxHeight: 300, overflowY: 'auto' }}>
         {sorted.map(f => (
           <button
             key={f.id}
@@ -549,8 +530,11 @@ export default function FarmMap({ user }) {
   const circlesRef = useRef([])
   const [farms, setFarms] = useState([])
   const [regions, setRegions] = useState([])
+  const [scans, setScans] = useState([])
   const [summary, setSummary] = useState(null)
   const [selectedFarm, setSelectedFarm] = useState(null)
+  const [mapData, setMapData] = useState(null)
+  const [trends, setTrends] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [showZones, setShowZones] = useState(true)
@@ -571,8 +555,8 @@ export default function FarmMap({ user }) {
       ? [user.buyer_lat, user.buyer_lng]
       : null
   const visibleScanReports = useMemo(() => {
-    return isAdmin ? SCAN_REPORTS : SCAN_REPORTS.filter(scan => scan.farmerId === user?.id)
-  }, [isAdmin, user?.id])
+    return isAdmin ? scans : scans.filter(scan => scan.user_id === user?.id)
+  }, [isAdmin, user?.id, scans])
 
   const mapHeight = isAdmin ? 520 : 420
 
@@ -584,9 +568,22 @@ export default function FarmMap({ user }) {
       setSelectedFarm(null)
       try {
         if (isAdmin) {
-          const res = await fetch('/api/farms/map?view=admin')
-          const data = await res.json()
-          if (!res.ok) throw new Error(data.error || `Map data failed (${res.status})`)
+          const [mapRes, trendsRes] = await Promise.all([
+            fetch('/api/farms/map'),
+            fetch('/api/analytics/disease-trends')
+          ])
+          if (!mapRes.ok) throw new Error('Failed to load map data')
+          const data = await mapRes.json()
+          
+          let trendsData = []
+          if (trendsRes.ok) {
+            const tRaw = await trendsRes.json()
+            trendsData = tRaw.map(r => ({ date: r.month, early: r.earlyBlight, late: r.lateBlight }))
+          }
+
+          setMapData(data)
+          setTrends(trendsData)
+          
           if (cancelled) return
           if (Array.isArray(data)) {
             setFarms(data)
@@ -596,14 +593,15 @@ export default function FarmMap({ user }) {
             setFarms(data.farms || [])
             setRegions(data.regions || [])
             setSummary(data.summary || null)
+            setScans(data.scans || [])
           }
         } else {
-          const [f, r] = await Promise.all([
-            fetch('/api/farms/map').then(x => x.json()),
-            fetch('/api/regions/disease-risk').then(x => x.json()),
-          ])
+          const res = await fetch('/api/farms/map')
+          const data = await res.json()
+          const r = await fetch('/api/regions/disease-risk').then(x => x.json())
           if (cancelled) return
-          setFarms(Array.isArray(f) ? f : [])
+          setFarms(Array.isArray(data.farms) ? data.farms : [])
+          setScans(Array.isArray(data.scans) ? data.scans : [])
           setRegions(Array.isArray(r) ? r : [])
           setSummary(null)
         }
@@ -612,12 +610,12 @@ export default function FarmMap({ user }) {
         console.error('Farm map load error:', err)
         setLoadError(err.message || 'Could not load map data')
         try {
-          const [f, r] = await Promise.all([
-            fetch('/api/farms/map').then(x => x.json()),
-            fetch('/api/regions/disease-risk').then(x => x.json()),
-          ])
+          const res = await fetch('/api/farms/map')
+          const data = await res.json()
+          const r = await fetch('/api/regions/disease-risk').then(x => x.json())
           if (!cancelled) {
-            setFarms(Array.isArray(f) ? f : [])
+            setFarms(Array.isArray(data.farms) ? data.farms : [])
+            setScans(Array.isArray(data.scans) ? data.scans : [])
             setRegions(Array.isArray(r) ? r : [])
           }
         } catch { /* keep empty */ }
@@ -852,7 +850,7 @@ export default function FarmMap({ user }) {
 
       <div style={{ borderRadius: 24, border: '1px solid var(--border)', background: 'var(--bg2)', boxShadow: '0 20px 50px rgba(15,23,42,0.06)', overflow: 'hidden' }}>
         <div style={{ padding: '22px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ flex: '1 1 250px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               {isAdmin ? <BarChart3 size={18} color="var(--accent)" /> : <MapPin size={16} color="var(--accent)" />}
               <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{isAdmin ? 'AI Scan Map & Risk Tracking' : 'Farm Locator'}</h2>
@@ -875,65 +873,7 @@ export default function FarmMap({ user }) {
             </div>
           )}
 
-          {!isAdmin && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <button 
-                  className="btn btn-primary" 
-                  onClick={updateFarmerLocation} 
-                  disabled={locUpdating}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px' }}
-                >
-                  {locUpdating && !showManual ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <MapPin size={14} />} 
-                  Auto-Detect Location
-                </button>
-                
-                <button 
-                  className="btn btn-secondary" 
-                  onClick={() => setShowManual(!showManual)}
-                  style={{ padding: '8px 14px', fontSize: 12 }}
-                >
-                  {showManual ? 'Cancel Manual' : 'Enter Manually'}
-                </button>
-              </div>
 
-              {/* Manual Entry Form */}
-              {showManual && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--bg3)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)' }}>
-                  <input 
-                    type="number" 
-                    step="any"
-                    value={manualLat} 
-                    onChange={e => setManualLat(e.target.value)} 
-                    placeholder="Latitude" 
-                    style={{ background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--border)', padding: '6px 10px', borderRadius: 6, width: 100, fontSize: 12 }}
-                  />
-                  <input 
-                    type="number" 
-                    step="any"
-                    value={manualLng} 
-                    onChange={e => setManualLng(e.target.value)} 
-                    placeholder="Longitude" 
-                    style={{ background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--border)', padding: '6px 10px', borderRadius: 6, width: 100, fontSize: 12 }}
-                  />
-                  <button 
-                    className="btn btn-primary" 
-                    onClick={saveManualLocation}
-                    disabled={locUpdating}
-                    style={{ padding: '6px 12px', fontSize: 12 }}
-                  >
-                    Save
-                  </button>
-                </div>
-              )}
-
-              {locMessage.text && (
-                <span style={{ fontSize: 12, color: locMessage.type === 'error' ? 'var(--danger)' : '#4ade80' }}>
-                  {locMessage.text}
-                </span>
-              )}
-            </div>
-          )}
 
         </div>
 
@@ -986,11 +926,6 @@ export default function FarmMap({ user }) {
         ) : (
           <div style={{ position: 'relative', minHeight: mapHeight, background: 'var(--bg3)' }}>
             <div ref={mapRef} style={{ width: '100%', height: mapHeight, minHeight: mapHeight, background: 'var(--bg3)' }} />
-            {isAdmin && farms.length > 0 && (
-              <AdminFarmsList farms={farms} selectedId={selectedFarm?.id} onSelect={(f) => setSelectedFarm(f)} />
-            )}
-            {selectedFarm && isAdmin && <AdminFarmPanel farm={selectedFarm} onClose={() => setSelectedFarm(null)} />}
-            {selectedFarm && !isAdmin && <FarmerFarmPanel farm={selectedFarm} onClose={() => setSelectedFarm(null)} />}
             <div style={{ position: 'absolute', bottom: 24, right: isAdmin ? 16 : 'auto', left: isAdmin ? 'auto' : 16, background: 'rgba(14,20,36,0.92)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', zIndex: 500, backdropFilter: 'blur(10px)', maxWidth: isAdmin ? 320 : 280, minWidth: 220 }}>
               <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>{isAdmin ? 'Analysis legend' : 'Map legend'}</p>
               {[
@@ -1017,12 +952,30 @@ export default function FarmMap({ user }) {
         )}
       </div>
 
-      <div style={{ marginTop: 22, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18 }}>
+      {isAdmin && farms.length > 0 && !loading && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
+          <AdminFarmsList farms={farms} selectedId={selectedFarm?.id} onSelect={(f) => setSelectedFarm(f)} />
+        </div>
+      )}
+
+      {selectedFarm && isAdmin && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24, background: 'var(--bg2)' }}>
+          <AdminFarmPanel farm={selectedFarm} onClose={() => setSelectedFarm(null)} />
+        </div>
+      )}
+
+      {selectedFarm && !isAdmin && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24, background: 'var(--bg2)' }}>
+          <FarmerFarmPanel farm={selectedFarm} onClose={() => setSelectedFarm(null)} />
+        </div>
+      )}
+
+      <div className="chart-grid">
         <div className="card" style={{ padding: 18 }}>
-          <LineChart data={TREND_DATA} keys={[ 'early', 'late' ]} colors={{ early: '#fbbf24', late: '#f87171' }} />
+          <LineChart data={trends.length ? trends : [{date:'No Data', early:0, late:0}]} keys={[ 'early', 'late' ]} colors={{ early: '#fbbf24', late: '#f87171' }} />
         </div>
         <div className="card" style={{ padding: 18 }}>
-          <BarChart data={AREA_DATA} valueKey="count" labelKey="region" color="#38bdf8" />
+          <BarChart data={regions.length ? regions : [{region: 'No Data', detection_count: 0}]} valueKey="detection_count" labelKey="region" color="#38bdf8" />
         </div>
       </div>
 

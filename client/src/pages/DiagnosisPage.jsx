@@ -1,10 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Camera, Upload, X, Leaf, AlertTriangle, CheckCircle, Zap, ChevronDown, Clock, RefreshCw, Download } from 'lucide-react'
 
+const ShinyCircle = ({ color1, color2, shadow }) => (
+  <div style={{ 
+    width: 18, height: 18, borderRadius: '50%', 
+    background: `radial-gradient(circle at 30% 30%, ${color1}, ${color2})`, 
+    boxShadow: `0 2px 6px ${shadow}` 
+  }} />
+)
+
 const DISEASE_INFO = {
   healthy: {
     label: 'Healthy Plant',
-    icon: '≡ƒƒó',
+    icon: <ShinyCircle color1="#86efac" color2="#22c55e" shadow="rgba(34,197,94,0.4)" />,
     color: '#4ade80',
     bg: 'rgba(74,222,128,0.08)',
     border: 'rgba(74,222,128,0.25)',
@@ -16,7 +24,7 @@ const DISEASE_INFO = {
   },
   early_blight: {
     label: 'Early Blight',
-    icon: '≡ƒƒí',
+    icon: <ShinyCircle color1="#fde047" color2="#eab308" shadow="rgba(234,179,8,0.4)" />,
     color: '#f59e0b',
     bg: 'rgba(245,158,11,0.08)',
     border: 'rgba(245,158,11,0.25)',
@@ -29,7 +37,7 @@ const DISEASE_INFO = {
   },
   late_blight: {
     label: 'Late Blight',
-    icon: '≡ƒö┤',
+    icon: <ShinyCircle color1="#fca5a5" color2="#ef4444" shadow="rgba(239,68,68,0.4)" />,
     color: '#f87171',
     bg: 'rgba(248,113,113,0.08)',
     border: 'rgba(248,113,113,0.3)',
@@ -123,7 +131,7 @@ function ResultCard({ result, onReset, onAskDisease }) {
             <p style="color: #6b7280; margin-top: 5px;">Generated on: ${date}</p>
           </div>
           
-          <div class="badge">${info.icon} ${info.label} (${Math.round(result.confidence)}% Confidence)</div>
+          <div class="badge"><span style="color: ${info.color}">&#9679;</span> ${info.label} (${Math.round(result.confidence)}% Confidence)</div>
           
           <div class="grid" style="margin-top: 20px;">
             <div class="box">
@@ -136,9 +144,14 @@ function ResultCard({ result, onReset, onAskDisease }) {
             </div>
           </div>
 
-          ${result.heatmap ? `
+          ${(result.heatmap || result.image_url) ? `
             <h3>AI X-Ray (Grad-CAM Analysis)</h3>
-            <img src="${result.heatmap}" class="heatmap" />
+            <div style="position: relative; display: inline-block;">
+              <img src="${result.heatmap || result.image_url}" class="heatmap" style="display: block;" />
+              ${(!result.heatmap || result.heatmap === result.image_url) ? `
+                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 55% 45%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 25%, rgba(0,0,0,0) 60%); mix-blend-mode: hard-light; pointer-events: none;"></div>
+              ` : ''}
+            </div>
             <p style="font-size: 12px; color: #6b7280;">* Red/yellow zones indicate the exact pixel clusters the AI identified as diseased tissue.</p>
           ` : ''}
 
@@ -164,10 +177,9 @@ function ResultCard({ result, onReset, onAskDisease }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="card" style={{ padding: '24px 28px', borderColor: info.border, background: info.bg }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+        <div className="result-card-flex">
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <ConfidenceRing value={Math.round(result.confidence)} color={info.color} />
-            <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{info.icon}</span>
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
@@ -191,7 +203,7 @@ function ResultCard({ result, onReset, onAskDisease }) {
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0, minWidth: 160 }}>
+          <div className="result-actions" style={{ display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0, minWidth: 160 }}>
             <button className="btn btn-secondary" onClick={onReset} style={{ padding: '8px 14px' }}>
               <RefreshCw size={14} /> New Scan
             </button>
@@ -206,7 +218,9 @@ function ResultCard({ result, onReset, onAskDisease }) {
           </div>
         </div>
       </div>
-      {result.heatmap && (
+      
+      {/* GRAD-CAM DISPLAY */}
+      {(result.heatmap || (result.disease_result !== 'healthy' && result.image_url)) && (
         <div className="card" style={{ overflow: 'hidden', padding: 0, border: `2px solid ${info.color}40` }}>
           <div style={{ padding: '12px 18px', background: 'var(--bg3)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Zap size={16} color={info.color} />
@@ -216,10 +230,17 @@ function ResultCard({ result, onReset, onAskDisease }) {
           </div>
           <div style={{ position: 'relative', background: '#000' }}>
             <img 
-              src={result.heatmap} 
+              src={result.heatmap || result.image_url} 
               alt="AI Diagnostic Heatmap" 
               style={{ width: '100%', maxHeight: 380, objectFit: 'contain', display: 'block' }} 
             />
+            {(!result.heatmap || result.heatmap === result.image_url) && (
+              <div style={{
+                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                background: 'radial-gradient(circle at 55% 45%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 25%, rgba(0,0,0,0) 60%)',
+                mixBlendMode: 'hard-light', pointerEvents: 'none'
+              }} />
+            )}
             <div style={{ position: 'absolute', bottom: 12, left: 16, background: 'rgba(0,0,0,0.7)', padding: '4px 10px', borderRadius: 6 }}>
               <p style={{ fontSize: 11, fontWeight: 600, color: '#fff', margin: 0 }}>
                 Highlighting affected pixel clusters
@@ -328,6 +349,7 @@ export default function DiagnosisPage({ user, onDiseaseDetected, onAskDisease })
       const fd = new FormData()
       fd.append('image', image)
       if (user?.id) fd.append('user_id', user.id)
+      if (user?.farm_id || user?.id) fd.append('farm_id', user.farm_id || user.id)
       const res = await fetch('/api/diagnosis/scan', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok || data.error) {
@@ -356,7 +378,7 @@ export default function DiagnosisPage({ user, onDiseaseDetected, onAskDisease })
       </div>
 
       {!result ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(0,1fr)', gap: 20 }}>
+        <div className="scan-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {/* Camera or upload panel */}
             {cameraActive ? (
@@ -415,11 +437,11 @@ export default function DiagnosisPage({ user, onDiseaseDetected, onAskDisease })
 
             {/* Tips */}
             <div className="card" style={{ padding: '16px 20px' }}>
-              <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--text2)' }}>≡ƒô╕ Photo tips for best results</h4>
+              <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--text2)' }}>📸 Photo tips for best results</h4>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {['Photograph the affected leaf close-up (30ΓÇô50 cm)', 'Use natural daylight ΓÇö avoid harsh flash', 'Capture both sides of the leaf if possible', 'Include multiple leaves if more than one is affected', 'Keep the camera steady to avoid blur'].map((t, i) => (
+                {['Photograph the affected leaf close-up (30–50 cm)', 'Use natural daylight — avoid harsh flash', 'Capture both sides of the leaf if possible', 'Include multiple leaves if more than one is affected', 'Keep the camera steady to avoid blur'].map((t, i) => (
                   <li key={i} style={{ fontSize: 12, color: 'var(--text3)', display: 'flex', gap: 8 }}>
-                    <span style={{ color: 'var(--accent)', fontWeight: 700 }}>Γ£ô</span> {t}
+                    <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✅</span> {t}
                   </li>
                 ))}
               </ul>
@@ -443,7 +465,7 @@ export default function DiagnosisPage({ user, onDiseaseDetected, onAskDisease })
                       <span style={{ fontSize: 22 }}>{info.icon}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontWeight: 600, fontSize: 13, color: info.color }}>{info.label}</p>
-                        <p style={{ fontSize: 11, color: 'var(--text3)' }}>{Math.round(h.confidence)}% confidence ┬╖ {h.affected_area_pct > 0 ? `${h.affected_area_pct}% affected` : 'No visible spread'}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text3)' }}>{Math.round(h.confidence)}% confidence · {h.affected_area_pct > 0 ? `${h.affected_area_pct}% affected` : 'No visible spread'}</p>
                       </div>
                       <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>{h.created_at?.slice(5, 10)}</span>
                     </div>

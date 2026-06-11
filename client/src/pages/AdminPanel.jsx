@@ -47,7 +47,7 @@ function DiseaseTab({ regions, farms, onUpdate }) {
   return (
     <div>
       <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 7 }}><Zap size={15} color="var(--warning)" /> Potato Blight Heat Map</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: 12, marginBottom: 16 }}>
+      <div className="admin-map-grid">
         <div style={{ height: 400, borderRadius: 18, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--bg2)' }}>
           {!farms || farms.length === 0 ? (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)' }}>
