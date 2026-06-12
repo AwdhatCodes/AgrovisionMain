@@ -321,15 +321,20 @@ app.get('/api/analytics/farmer/:farmId/disease-trends', farmerDiseasesTrendHandl
 // Helper to automatically aggregate live AI scans into region detection counts
 function syncRegionDetections() {
   const counts = db.prepare(`
-    SELECT f.region, COUNT(s.id) as actual_count
-    FROM disease_scans s
-    JOIN farms f ON f.id = s.farm_id
-    WHERE s.disease_result != 'healthy'
+    SELECT f.region, SUM(CASE WHEN s.disease_result != 'healthy' THEN 1 ELSE 0 END) as actual_count
+    FROM farms f
+    LEFT JOIN disease_scans s ON f.id = s.farm_id
     GROUP BY f.region
   `).all()
 
   for (const row of counts) {
-    db.prepare(`UPDATE region_disease_risk SET detection_count = ? WHERE region = ?`).run(row.actual_count, row.region)
+    if (!row.region) continue;
+    db.prepare(`
+      INSERT INTO region_disease_risk (region, risk_level, detection_count, blight_type)
+      VALUES (?, 'safe', ?, 'none')
+      ON CONFLICT(region) DO UPDATE SET 
+        detection_count = excluded.detection_count
+    `).run(row.region, row.actual_count)
   }
 }
 

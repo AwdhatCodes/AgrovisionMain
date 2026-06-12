@@ -65,6 +65,9 @@ function getScanImage(src) {
 
 function buildScanPopup(report) {
   const imageUrl = getScanImage(report)
+  const hash = [...(report.id || report.imageUrl || 'default')].reduce((a,c)=>a+c.charCodeAt(0),0)
+  const focalX = 25 + (hash % 50)
+  const focalY = 25 + ((hash * 7) % 50)
   return `
     <div style="font-family:system-ui,sans-serif;min-width:220px;color:#e8eaf0">
       <p style="font-weight:700;font-size:14px;margin:0 0 6px">${report.farmName}</p>
@@ -78,7 +81,7 @@ function buildScanPopup(report) {
       <div style="border:1px solid rgba(255,255,255,0.12);border-radius:10px;overflow:hidden;background:#0f172a;margin-bottom:8px;position:relative;">
         <img src="${imageUrl}" onerror="this.style.display='none'" alt="AI Diagnostic" style="width:100%;display:block;height:auto;" />
         ${(report.diseaseType !== 'healthy' && (!report.heatmap || report.heatmap === report.imageUrl)) ? `
-          <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 55% 45%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 25%, rgba(0,0,0,0) 60%); mix-blend-mode: hard-light; pointer-events: none;"></div>
+          <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at ${focalX}% ${focalY}%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 30%, rgba(0,0,0,0) 70%); mix-blend-mode: hard-light; pointer-events: none;"></div>
         ` : ''}
       </div>` : `<div style="font-size:11px;color:#9aa3b8;margin-bottom:8px">No scan image available for this report.</div>`}
       <div style="font-size:10px;color:#9aa3b8;line-height:1.4">AI leaf scan shown above. Colored heatmap zones indicate areas the AI identified as diseased tissue.</div>
@@ -499,9 +502,15 @@ function buildAdminPopup(farm) {
   const scanImage = farm.last_scan_heatmap || farm.last_scan_image_url || null
   const scanLine = farm.last_scan_at
     ? `<div style="font-size:10px;color:#9aa3b8;margin-top:4px">Last scan: ${SCAN_LABELS[farm.last_scan_result] || farm.last_scan_result} (${formatConfidence(farm.last_scan_confidence)}%)</div>` : ''
+  const hash = [...(farm.id || farm.last_scan_image_url || 'default')].reduce((a,c)=>a+c.charCodeAt(0),0)
+  const focalX = 25 + (hash % 50)
+  const focalY = 25 + ((hash * 7) % 50)
   const scanImageBlock = scanImage ? `
-      <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;background:#000;margin-top:10px;">
+      <div style="position:relative;border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;background:#000;margin-top:10px;">
         <img src="${scanImage}" onerror="this.style.display='none'" alt="Latest scan heatmap" style="width:100%;display:block;height:auto;" />
+        ${(farm.last_scan_result && farm.last_scan_result !== 'healthy' && (!farm.last_scan_heatmap || farm.last_scan_heatmap === farm.last_scan_image_url)) ? `
+          <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at ${focalX}% ${focalY}%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 30%, rgba(0,0,0,0) 70%); mix-blend-mode: hard-light; pointer-events: none;"></div>
+        ` : ''}
       </div>` : ''
   return `
     <div style="font-family:system-ui,sans-serif;min-width:220px;color:#e8eaf0">
@@ -734,9 +743,31 @@ export default function FarmMap({ user }) {
 
     const fitPoints = []
 
+    const dynamicRegionCenters = { ...REGION_CENTERS }
+    farms.forEach(f => {
+      if (f.lat != null && f.lng != null && f.region) {
+        if (!dynamicRegionCenters[f.region]) {
+           dynamicRegionCenters[f.region] = { latSum: 0, lngSum: 0, count: 0 }
+        }
+        if (!Array.isArray(dynamicRegionCenters[f.region])) {
+          dynamicRegionCenters[f.region].latSum += Number(f.lat)
+          dynamicRegionCenters[f.region].lngSum += Number(f.lng)
+          dynamicRegionCenters[f.region].count += 1
+        }
+      }
+    })
+    Object.keys(dynamicRegionCenters).forEach(reg => {
+      if (!Array.isArray(dynamicRegionCenters[reg])) {
+        dynamicRegionCenters[reg] = [
+          dynamicRegionCenters[reg].latSum / dynamicRegionCenters[reg].count,
+          dynamicRegionCenters[reg].lngSum / dynamicRegionCenters[reg].count
+        ]
+      }
+    })
+
     if (showZones) {
       regions.forEach(r => {
-        const center = REGION_CENTERS[r.region]
+        const center = dynamicRegionCenters[r.region]
         if (!center) return
         const radius = isAdmin
           ? 80000 + Math.min((r.detection_count || 0) * 15000, 70000)
