@@ -193,6 +193,12 @@ app.post('/api/auth/register', async (req, res) => {
   }
 })
 
+/**
+ * Authenticates a user and issues a JWT token.
+ * @route POST /api/auth/login
+ * @param {express.Request} req - The Express request object containing email and password.
+ * @param {express.Response} res - The Express response object.
+ */
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body
@@ -240,6 +246,12 @@ app.put('/api/users/location', requireAuth, (req, res) => {
 })
 
 // ── DISEASE DIAGNOSIS / AI SCAN ──
+/**
+ * Processes an uploaded leaf image, runs AI diagnosis, and returns a Grad-CAM result.
+ * @route POST /api/diagnosis/scan
+ * @param {express.Request} req - The Express request object containing the uploaded image.
+ * @param {express.Response} res - The Express response object.
+ */
 app.post('/api/diagnosis/scan', upload.single('image'), async (req, res) => {
   const { user_id, farm_id, notes } = req.body
   const image_url = req.file ? `/uploads/${req.file.filename}` : null
@@ -272,6 +284,13 @@ app.get('/api/diagnosis/history', (req, res) => {
 app.post('/chat/advice', adviceHandler)
 
 // ── INLINE ANALYTICS HANDLER ──
+/**
+ * Retrieves disease statistics across all regions.
+ * Includes data for the chart visualizations in the Admin Dashboard.
+ * @route GET /api/analytics/disease-trends
+ * @param {express.Request} req - The Express request object.
+ * @param {express.Response} res - The Express response object.
+ */
 app.get('/api/analytics/disease-trends', (req, res) => {
   try {
     const rows = db.prepare(`
@@ -752,4 +771,8 @@ app.use((err, req, res, next) => {
   next(err)
 })
 
-app.listen(PORT, '0.0.0.0', () => console.log(`FarmMarket API running on port ${PORT}`))
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, '0.0.0.0', () => console.log(`FarmMarket API running on port ${PORT}`))
+}
+
+export default app

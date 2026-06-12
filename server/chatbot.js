@@ -196,6 +196,14 @@ function getFallbackResponse(type = 'unknown', lang = 'EN') {
   return getRandom(knowledgeBase.fallback.unknown_responses)
 }
 
+/**
+ * Generates an automated local chatbot response based on the knowledge base.
+ * Evaluates the input string for greetings, personalization, known diseases, and relevant actions.
+ * @param {string} input - The natural language query from the user.
+ * @param {Object} [userSession={}] - Contextual session data such as the user's name or last discussed disease.
+ * @param {string} [lang='EN'] - The target language code ('EN' or 'SW').
+ * @returns {{ text: string, intent: string, disease?: string, action?: string, userSession: Object }} The generated response object.
+ */
 export function chatbotResponse(input, userSession = {}, lang = 'EN') {
   const text = String(input || '').trim()
   if (!text) {

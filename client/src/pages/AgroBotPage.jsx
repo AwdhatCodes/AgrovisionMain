@@ -87,6 +87,13 @@ function ChatBubble({ msg }) {
 
 let lastAutoAskedDisease = null
 
+/**
+ * The AgroBot chat interface component.
+ * Manages conversation state, speech-to-text (Web Speech API), and handles disease-specific advice queries.
+ * @param {Object} props - The component props.
+ * @param {string} [props.disease] - The currently active disease detected by the Grad-CAM AI, used for context.
+ * @returns {JSX.Element} The rendered chatbot page.
+ */
 export default function AgroBotPage({ disease }) {
   const [lang, setLang] = useState('EN')
   const [messages, setMessages] = useState(() => (

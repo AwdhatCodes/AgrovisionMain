@@ -531,6 +531,14 @@ function buildAdminPopup(farm) {
     </div>`
 }
 
+/**
+ * The Farm Map interface component.
+ * Renders the Leaflet map, interactive disease zones, and farmer pins.
+ * Handles the calculation of disease incidence radii and coordinates map interactions.
+ * @param {Object} props - The component props.
+ * @param {Object} props.user - The currently authenticated user object.
+ * @returns {JSX.Element} The rendered map component.
+ */
 export default function FarmMap({ user }) {
   const isAdmin = user?.role?.toString().toLowerCase() === 'admin'
   const mapRef = useRef(null)
