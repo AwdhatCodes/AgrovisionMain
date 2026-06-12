@@ -199,6 +199,11 @@ const seedData = db.transaction(() => {
 
   const upsertRegion = db.prepare(`INSERT INTO region_disease_risk (region, risk_level, detection_count, blight_type) VALUES (?, ?, ?, ?)
     ON CONFLICT(region) DO UPDATE SET risk_level=excluded.risk_level, detection_count=excluded.detection_count, blight_type=excluded.blight_type`)
+  
+  upsertRegion.run('Nyandarua County', 'safe', 0, 'none')
+  upsertRegion.run('Meru County', 'safe', 0, 'none')
+  upsertRegion.run('Nakuru County', 'safe', 0, 'none')
+  upsertRegion.run('Uasin Gishu', 'safe', 0, 'none')
 
 
   const insertAlert = db.prepare(`INSERT OR IGNORE INTO disease_alerts (id, region, message, severity, blight_type, simulated_email, simulated_sms) VALUES (?, ?, ?, ?, ?, ?, ?)`)

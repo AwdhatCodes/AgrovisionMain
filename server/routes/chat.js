@@ -46,9 +46,10 @@ function buildOllamaPrompt(disease, question, lang) {
 
   const description = [
     'You are an expert potato farming advisor.',
+    'You are friendly and can exchange greetings, but always steer the topic back to potato farming.',
     langInstruction,
     'Use the available local knowledge and knowledge base when you respond.',
-    'If you do not have enough information, say you can only help with potato diseases and farming advice.'
+    'If you do not have enough information to answer a specific farming question, say you can only help with potato diseases and farming advice.'
   ].join(' ')
 
   const diseaseContext = disease ? `Specific disease mentioned: ${disease.trim()}` : ''
@@ -185,7 +186,16 @@ export async function adviceHandler(req, res) {
       console.log('Ollama unavailable, using local knowledge base')
     }
 
-    const localReply = chatbotResponse(diseaseName || q, {}, langCode)
+    let fallbackInput = q
+    const isGreeting = ['hello', 'hi', 'good morning', 'good evening', 'how are you', 'habari', 'mambo'].some(g => q.toLowerCase().includes(g))
+    
+    if (diseaseName && q && !isGreeting) {
+      fallbackInput = `${diseaseName} ${q}`
+    } else if (!q && diseaseName) {
+      fallbackInput = diseaseName
+    }
+
+    const localReply = chatbotResponse(fallbackInput, {}, langCode)
     let advice = localReply.text
 
     if (langCode === 'SW' && advice && ollamaAvailable) {

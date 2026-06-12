@@ -7,6 +7,7 @@ const knowledgeBase = JSON.parse(readFileSync(join(__dirname, 'knowledgeBase.jso
 
 const swKnowledge = {
   greetings: {
+    keywords: ['habari', 'mambo', 'hujambo', 'shikamoo', 'niaje', 'sasa', 'jambo'],
     responses: [
       'Habari 👋 Mimi ni msaidizi wako wa kilimo. Ninaweza kukusaidia vipi leo?',
       'Habari! Naweza kukusaidia kutambua magonjwa na kutoa ushauri wa kilimo.',
@@ -207,7 +208,8 @@ export function chatbotResponse(input, userSession = {}, lang = 'EN') {
 
   const normalizedText = normalizeText(text)
 
-  if (includesAny(normalizedText, knowledgeBase.greetings.keywords)) {
+  const greetingKeywords = [...(knowledgeBase.greetings.keywords || []), ...(swKnowledge.greetings.keywords || [])]
+  if (includesAny(normalizedText, greetingKeywords)) {
     return {
       text: getGreetingResponse(userSession, lang),
       intent: 'greeting',

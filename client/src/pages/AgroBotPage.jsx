@@ -188,7 +188,17 @@ export default function AgroBotPage({ disease }) {
       setListening(false)
       sendMessage(transcript)
     }
-    rec.onerror = () => setListening(false)
+    rec.onerror = (e) => {
+      console.error('Speech recognition error:', e.error)
+      if (e.error === 'not-allowed') {
+        alert('Microphone access denied. Please check your browser permissions.')
+      } else if (e.error === 'no-speech') {
+        alert('No speech was detected. Please try again.')
+      } else {
+        alert(`Speech recognition error: ${e.error}`)
+      }
+      setListening(false)
+    }
     rec.onend = () => setListening(false)
     recognitionRef.current = rec
     rec.start()
