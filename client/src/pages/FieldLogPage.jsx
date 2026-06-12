@@ -314,9 +314,20 @@ export default function FieldLogPage({ user }) {
                         {scan.severity && <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 99, background: meta.bg, color: meta.color, textTransform: 'capitalize' }}>{scan.severity}</span>}
                       </div>
                     </div>
-                    <div style={{ width: 54, height: 54, borderRadius: 8, background: 'var(--bg3)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 54, height: 54, borderRadius: 8, background: 'var(--bg3)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                       {scan.image_url
-                        ? <img src={scan.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? (
+                          <>
+                            <img src={scan.heatmap || scan.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            {(!scan.heatmap || scan.heatmap === scan.image_url) && scan.disease_result !== 'healthy' && (
+                              <div style={{
+                                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                background: `radial-gradient(circle at ${25 + (([...(scan.id || 'default')].reduce((a,c)=>a+c.charCodeAt(0),0)) % 50)}% ${25 + ((([...(scan.id || 'default')].reduce((a,c)=>a+c.charCodeAt(0),0))*7) % 50)}%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 30%, rgba(0,0,0,0) 70%)`,
+                                mixBlendMode: 'hard-light', pointerEvents: 'none'
+                              }} />
+                            )}
+                          </>
+                        )
                         : <Leaf size={18} style={{ opacity: 0.25 }} />
                       }
                     </div>

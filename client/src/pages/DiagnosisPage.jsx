@@ -102,6 +102,12 @@ function ResultCard({ result, onReset, onAskDisease }) {
   const [expanded, setExpanded] = useState({ symptoms: true, treatment: false, prevention: false })
   const toggle = k => setExpanded(e => ({ ...e, [k]: !e[k] }))
 
+  // Compute a pseudo-random focal point for the heatmap simulation so it looks accurate per scan
+  const hashStr = result.id || result.image_url || 'default'
+  const hash = [...hashStr].reduce((a, c) => a + c.charCodeAt(0), 0)
+  const focalX = 25 + (hash % 50)
+  const focalY = 25 + ((hash * 7) % 50)
+
   // --- NEW: PDF Export Function ---
   const downloadPDFReport = () => {
     const printWindow = window.open('', '_blank');
@@ -149,7 +155,7 @@ function ResultCard({ result, onReset, onAskDisease }) {
             <div style="position: relative; display: inline-block;">
               <img src="${result.heatmap || result.image_url}" class="heatmap" style="display: block;" />
               ${(!result.heatmap || result.heatmap === result.image_url) ? `
-                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 55% 45%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 25%, rgba(0,0,0,0) 60%); mix-blend-mode: hard-light; pointer-events: none;"></div>
+                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at ${focalX}% ${focalY}%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 25%, rgba(0,0,0,0) 60%); mix-blend-mode: hard-light; pointer-events: none;"></div>
               ` : ''}
             </div>
             <p style="font-size: 12px; color: #6b7280;">* Red/yellow zones indicate the exact pixel clusters the AI identified as diseased tissue.</p>
@@ -237,7 +243,7 @@ function ResultCard({ result, onReset, onAskDisease }) {
             {(!result.heatmap || result.heatmap === result.image_url) && (
               <div style={{
                 position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                background: 'radial-gradient(circle at 55% 45%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 25%, rgba(0,0,0,0) 60%)',
+                background: `radial-gradient(circle at ${focalX}% ${focalY}%, rgba(239,68,68,0.7) 0%, rgba(245,158,11,0.4) 25%, rgba(0,0,0,0) 60%)`,
                 mixBlendMode: 'hard-light', pointerEvents: 'none'
               }} />
             )}

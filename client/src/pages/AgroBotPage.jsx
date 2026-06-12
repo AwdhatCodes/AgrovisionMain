@@ -131,7 +131,8 @@ export default function AgroBotPage({ disease }) {
 
   const sendMessage = async (text) => {
     if (thinking) return
-    const question = (text !== undefined ? text : input).trim()
+    const questionStr = typeof text === 'string' ? text : input
+    const question = questionStr.trim()
     const diseaseName = (disease || diseaseInput || '').trim()
     const diseaseLabel = mapDiseaseKeyToLabel(diseaseName)
 

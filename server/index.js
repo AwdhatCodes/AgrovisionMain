@@ -95,9 +95,10 @@ function simulateDiagnosis(filename = '', fileSize = 0, image_url = null) {
   confidence = Math.min(confidence, 97)
   affected_area_pct = Math.min(affected_area_pct, 90)
 
+  const csi = calculateCSI(affected_area_pct, confidence, disease_result)
   const severity = disease_result === 'healthy' ? 'none'
-    : affected_area_pct < 20 ? 'mild'
-    : affected_area_pct < 50 ? 'moderate' : 'severe'
+    : csi < 15 ? 'mild'
+    : csi < 40 ? 'moderate' : 'severe'
 
   return { 
     disease_result, 
@@ -117,10 +118,19 @@ function mapAiDiagnosis(label = '') {
   return 'healthy'
 }
 
-function severityFromCoverage(affected_area_pct) {
+function calculateCSI(area, conf, type) {
+  if (type === 'healthy' || area <= 0) return 0
+  const areaFactor = Math.pow(area / 100, 1.2) * 100
+  const pathogenWeight = type === 'late_blight' ? 1.4 : 1.0
+  const confWeight = Math.max(0.5, conf / 100)
+  return areaFactor * pathogenWeight * confWeight
+}
+
+function severityFromCoverage(affected_area_pct, confidence = 90, diseaseType = 'unknown') {
   if (affected_area_pct <= 0) return 'none'
-  if (affected_area_pct < 20) return 'mild'
-  if (affected_area_pct < 50) return 'moderate'
+  const csi = calculateCSI(affected_area_pct, confidence, diseaseType)
+  if (csi < 15) return 'mild'
+  if (csi < 40) return 'moderate'
   return 'severe'
 }
 
@@ -142,7 +152,7 @@ async function runAiDiagnosis(file) {
     disease_result,
     confidence: Math.round(Number(data.confidence) || 0),
     affected_area_pct,
-    severity: severityFromCoverage(affected_area_pct),
+    severity: severityFromCoverage(affected_area_pct, Math.round(Number(data.confidence) || 0), disease_result),
     heatmap: data.heatmap || null,
   }
 }
